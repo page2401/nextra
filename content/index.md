@@ -15,6 +15,7 @@ description: "锁定版本 nextra@4.6.1 + nextra-theme-docs@4.6.1 · Next.js 15 
 | [`02. 流程图与时序图`](/02-diagrams/) | 流程图与时序图 | 内置 `@theguild/remark-mermaid@0.3.0`（锁在 `mermaid@11.17.2`），零插件自动接管代码块并随明暗主题重绘 |
 | [`03. 数学公式排版`](/03-math/) | 数学公式排版 | `nextra({ latex: true })` 一键启用 `remark-math@6` + `rehype-katex@7`，配合本地打包 `katex@0.16.47` 样式与字体（零外部 CDN 请求） |
 | [`04. 目录结构与路由取舍`](/04-directory/) | 目录结构与 `_meta.js` | `content/` 内容目录 + `app/[[...mdxPath]]/page.jsx` 路由解耦；废弃旧版 `_meta.json`，全面改用 Zod 强校验 `_meta.js` 编排中文分组与 `asIndexPage` |
+| [`05. 高阶代码块与语法高亮`](/05-code-blocks/) | `rehype-pretty-code` 与 `<Tabs>` | 专属 `filename="..."` 标题栏属性与 `{3,7-9}` 行区间高亮；默认未预装 `transformerNotationDiff`；多语言组使用 `nextra/components` `<Tabs>` |
 
 ## 子模块精确锁定版本档案
 

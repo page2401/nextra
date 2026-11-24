@@ -8,5 +8,6 @@ export default {
     theme: {
       collapsed: false
     }
-  }
+  },
+  '05-code-blocks': '05. 高阶代码块与语法高亮'
 }

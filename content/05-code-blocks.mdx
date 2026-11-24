@@ -1,0 +1,97 @@
+---
+title: "05. 高阶代码块与语法高亮"
+description: "测试 Nextra v4 (4.6.1) 内置 rehype-pretty-code + Shiki 的 filename 标题栏、{3,7-9} 行高亮、Diff 着色机制与 nextra/components <Tabs> 命令组。"
+---
+
+import { Tabs } from 'nextra/components'
+
+# 05. 高阶代码块与语法高亮（Nextra v4 派生版）
+
+技术文档中超过 40% 的篇幅由代码块构成，但标准 CommonMark / GitHub Flavored Markdown 仅定义了围栏语言标识（```` ```ts ````），并未定义文件名标题栏、指定行高亮、带词法着色的行级 Diff 以及多语言 Tab 切换组。本页采用 `.mdx` 扩展名由原始 GFM 母版派生适配至 **Nextra v4 (`4.6.1`)**，实测其内置 **`rehype-pretty-code` (`0.14.1`) + Shiki** 管线与 `nextra/components` 标签页组件。
+
+## 1. 代码块文件名标题栏（`filename="..."` 专属属性）
+
+与 Starlight / Docusaurus / Fumadocs / Rspress 普遍采用 `title="..."` 不同，Nextra v4 的内置 `rehypeParseCodeMeta` 插件专门识别 **`filename="..."`** 属性（若误写 `title="..."` 则会被忽略），并自动渲染带语言图标的顶栏与复制按钮：
+
+```ts filename="scripts/resolve-route.ts"
+export interface RouteContext {
+  basePath: string
+  slug: string
+  cleanUrls: boolean
+}
+
+export function formatDocRoute(ctx: RouteContext): string {
+  const prefix = ctx.basePath.endsWith('/') ? ctx.basePath : `${ctx.basePath}/`
+  const normalized = ctx.slug.replace(/^\/+|\/+$/g, '')
+  if (!normalized || normalized === 'index') return prefix
+  return ctx.cleanUrls ? `${prefix}${normalized}/` : `${prefix}${normalized}.html`
+}
+```
+
+## 2. 关键行聚焦与子串高亮（`{3,7-9}`）
+
+Nextra v4 底层委托 `rehype-pretty-code` 解析信息串中的 `{3,7-9}` 行区间标记（同样支持 `/substring/` 词级高亮语法），无需在配置源码中插入额外注释即可聚焦第 `3` 行与第 `7–9` 行：
+
+```json {3,7-9} filename="benchmark.config.json"
+{
+  "id": "ssg-benchmark",
+  "routeStyle": "clean",
+  "strictZeroCdn": true,
+  "markdown": {
+    "mathEngine": "katex",
+    "diagramEngine": "mermaid",
+    "lineHighlight": true,
+    "codeTransformers": ["diff", "focus"]
+  }
+}
+```
+
+## 3. 代码增删对比着色（默认 `diff` 语言 vs `@shikijs/transformers` 观察）
+
+**实测发现**：虽然 Nextra v4 底层采用 Shiki，但其默认 `DEFAULT_REHYPE_PRETTY_CODE_OPTIONS` 并未预挂载 `@shikijs/transformers` 的 `transformerNotationDiff`（除非在 `nextra({ mdxOptions: { rehypePrettyCodeOptions: { transformers: [...] } } })` 中手动注入，否则 `// [!code ++]` 会作为普通注释原样输出）。在零额外插件的开箱状态下，使用标准 `diff` 语言配 `filename="..."` 可获得 GitHub Light / Dark 双主题原生红绿着色：
+
+```diff filename="scripts/mount-subsite.patch"
+ export function mountSubsite(baseDir: string, subPath: string): string | null {
+-  const cleanRel = decodeURIComponent(subPath).replace(/\.\./g, '')
+-  return `${baseDir}/${cleanRel}`
++  const resolvedBase = path.resolve(baseDir)
++  const target = path.resolve(resolvedBase, decodeURIComponent(subPath).replace(/^\/+/, ''))
++  return target.startsWith(`${resolvedBase}${path.sep}`) ? target : null
+ }
+```
+
+## 4. 多语言运行时命令组（`nextra/components` `<Tabs>`）
+
+在 Nextra `.mdx` 文档中，官方标准做法是从 `nextra/components` 导入基于 Headless UI 封装的 `<Tabs items={[...]}>` 与 `<Tabs.Tab>` 组件（针对纯 Node 包管理器场景，Nextra 亦内置 `remarkNpm2Yarn` 插件）：
+
+<Tabs items={['Node.js (package.json)', 'Deno 2 (deno.json)', 'Python (requirements.txt)', 'Ruby (Gemfile)']}>
+  <Tabs.Tab>
+    ```bash
+    npm ci && npm run build
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    deno task build
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    pip install -r requirements.txt && sphinx-build -b dirhtml . _build/dirhtml
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    bundle install && bundle exec jekyll build
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+## 5. 四大底层高亮引擎能力对照小结
+
+| 高亮引擎代表 | 典型采用框架 | 构建期零运行时 JS | 原生行号 / 行高亮 | 保留词法着色的 Diff |
+| :--- | :--- | :--- | :--- | :--- |
+| **Shiki / Expressive Code** | VitePress、Starlight、Fumadocs、Nextra、Rspress、Nuxt、Quartz | ✅ 纯静态内联样式 | ✅ `{1,3-5}` / `[!code highlight]` | ✅ `// [!code ++]`（Nextra 需挂载 transformer） |
+| **Prism.js** | Docusaurus、VuePress、Eleventy (plugin)、Gatsby | ✅ 静态 Token 类名 | ✅ `{1,3-5}` / 魔法注释 | ⚠️ 需配 diff-highlight 插件 |
+| **Pygments / Rouge** | MkDocs Material、Sphinx、Pelican、Jekyll | ✅ Python/Ruby 编译直出 | ✅ `hl_lines` / `emphasize-lines` | ⚠️ 仅标准 `diff` 块红绿 |
+| **Chroma / Giallo / hljs** | Hugo (Go Chroma)、Zola (Rust Giallo)、mdBook (hljs) | ✅ (mdBook 为客户端 hljs) | ✅ Hugo/Zola 原生 `hl_lines` | ⚠️ 仅标准 `diff` 块红绿 |
